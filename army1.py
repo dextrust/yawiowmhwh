@@ -1,100 +1,83 @@
-import requests
-from YT import main as yt_main  # Import YouTube task
-from web1 import webmain  # Import Website task
-import random
-from multiprocessing import Process
+import os
+import multiprocessing
+from YT import main as yt_main  # Import YouTube task main function
+from web1 import main as web_main  # Import Website task main function
+from importingfeatures import clear_uc_cache  # Import cache clearing utility
 
-def main():
-    runprogram = input("Run program? [Y] / [N]: ")
-    if runprogram.lower() == "y":
-        if locationcheck():  # Check location before proceeding
-            task()
-    else:
-        print("Goodbye!")
+def locationcheck():
+    import requests
+    try:
+        response = requests.get("https://ipinfo.io", timeout=5)
+        data = response.json()
+        print(f"Detected Location: {data.get('country', 'Unknown')}")
+        return data.get('country', 'Unknown')
+    except Exception as e:
+        print(f"Error checking location: {e}")
+        return None
 
-def task():
-    tasklist = ["Auto[1]", "Customized Task[2]"]
-    for x in tasklist:
-        print(x)
-
-    runtask = input("Choose Task: ")
-    if runtask == "1":  # Auto Task
-        print("Running Auto Task...")
-        auto_task()
-    elif runtask == "2":  # Customized Task
-        print("Customized Task selected.")
-        customized_task()
-    else:
-        print("Invalid option. Exiting.")
-
-def auto_task():
-    # Randomly choose between tasks
-    chosen_task = random.choice(["YouTube", "Website"])
-    process_count = random.randint(5, 20)  # Randomly decide number of processes
-    print(f"Auto-selected Task: {chosen_task}")
-    print(f"Randomly chosen process count: {process_count}")
-
-    if chosen_task == "YouTube":
-        channel_name = input("Enter the YouTube Channel Name: ")
-        run_multiprocessing(yt_main, process_count, channel_name)
-    elif chosen_task == "Website":
-        run_multiprocessing(webmain, process_count)
-
-def customized_task():
-    print("Available Tasks:")
-    print("YouTube[1], Website[2]")
-    chosen_task = input("Select Task: ")
-
-    if chosen_task not in ["1", "2"]:
-        print("Invalid Task. Exiting.")
+def run_task(task_name, process_count, additional_args=None):
+    tasks = {
+        "YouTube": yt_main,
+        "Website": web_main
+    }
+    if task_name not in tasks:
+        print("Invalid task name!")
         return
 
-    process_count = input("Enter number of processes to run: ")
-    if not process_count.isdigit():
-        print("Invalid input. Number of processes must be an integer. Exiting.")
-        return
-
-    process_count = int(process_count)
-    if chosen_task == "1":
-        channel_name = input("Enter the YouTube Channel Name: ")
-        print(f"Running YouTube task with {process_count} processes...")
-        run_multiprocessing(yt_main, process_count, channel_name)
-    elif chosen_task == "2":
-        print(f"Running Website task with {process_count} processes...")
-        run_multiprocessing(webmain, process_count)
-
-# Multiprocessing Function
-def run_multiprocessing(task_function, process_count, *args):
+    task_function = tasks[task_name]
     processes = []
     for _ in range(process_count):
-        process = Process(target=task_function, args=args)
-        processes.append(process)
-        process.start()
+        p = multiprocessing.Process(target=task_function, args=additional_args or ())
+        processes.append(p)
+        p.start()
 
-    for process in processes:
-        process.join()
+    for p in processes:
+        p.join()
 
-# Location Checker (Using API)
-def locationcheck():
-    try:
-        print("Checking location using IP-based API...")
-        response = requests.get("https://ipinfo.io")
-        if response.status_code == 200:
-            data = response.json()
-            location = data.get("country", "Unknown")  # Get the country code
-            print(f"Detected Location: {location}")
-            if location != "ID":  # Check if location is not Indonesia
-                print("Location is not in Indonesia. Proceeding...")
-                return True
-            else:
-                print("Location is in Indonesia. Program aborted.")
-                return False
-        else:
-            print(f"Error: Received status code {response.status_code} from IPInfo API.")
-            return False
-    except Exception as e:
-        print(f"Error during location check: {e}")
-        return False
+def main():
+    run_program = input("Run program? [Y] / [N]: ").strip().lower()
+    if run_program != 'y':
+        print("Program exited.")
+        return
+
+    print("Checking location using IP-based API...")
+    location = locationcheck()
+
+    if location != "ID":  # Assuming 'ID' is the country code for Indonesia
+        print("Location is not in Indonesia. Proceeding...")
+    else:
+        print("Location is in Indonesia. Exiting program.")
+        return
+
+    print("Auto[1]\nCustomized Task[2]")
+    choice = input("Choose Task: ").strip()
+
+    if choice == "1":
+        print("Auto task not implemented yet. Exiting.")
+        return
+
+    elif choice == "2":
+        print("Customized Task selected.")
+        print("Available Tasks: YouTube[1], Website[2]")
+        task_choice = input("Select Task: ").strip()
+
+        task_name = "YouTube" if task_choice == "1" else "Website" if task_choice == "2" else None
+        if not task_name:
+            print("Invalid task selected. Exiting.")
+            return
+
+        process_count = int(input("Enter number of processes to run: ").strip())
+        additional_args = None
+
+        if task_name == "YouTube":
+            channel_name = input("Enter the YouTube Channel Name: ").strip()
+            additional_args = (channel_name,)
+
+        # Clear undetected_chromedriver cache before starting tasks
+        clear_uc_cache()
+
+        print(f"Running {task_name} task with {process_count} processes...")
+        run_task(task_name, process_count, additional_args)
 
 if __name__ == "__main__":
     main()

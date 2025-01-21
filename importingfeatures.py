@@ -1,27 +1,46 @@
+import os
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from multiprocessing import Lock
 
-# Global lock to synchronize driver initialization
-driver_lock = Lock()
-
-# Function to initialize the driver
-def get_driver():
-    with driver_lock:  # Ensure only one process initializes at a time
-        options = uc.ChromeOptions()
-        options.add_argument("--disable-gpu")
-        # Add other Chrome options as needed
-        driver = uc.Chrome(options=options)
-    return driver
-
-# Wait for an element to be clickable
-def wait_for_element(driver, by, value, timeout=15):
+def clear_uc_cache():
+    """Clear the undetected_chromedriver cache."""
+    uc_cache_dir = os.path.expanduser("~\\AppData\\Roaming\\undetected_chromedriver")
     try:
-        return WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, value)))
-    except TimeoutException:
-        print(f"Element not interactable or not found: {value}")
+        if os.path.exists(uc_cache_dir):
+            for root, dirs, files in os.walk(uc_cache_dir, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            print("Cleared undetected_chromedriver cache.")
+    except Exception as e:
+        print(f"Error clearing cache: {e}")
+
+def get_driver():
+    """Initialize and return a new WebDriver instance."""
+    options = uc.ChromeOptions()
+    options.add_argument("--disable-popup-blocking")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--headless=new")  # Use non-legacy headless mode
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+
+    try:
+        driver = uc.Chrome(options=options)
+        print("WebDriver initialized successfully.")
+        return driver
+    except Exception as e:
+        print(f"Failed to initialize WebDriver: {e}")
+        raise
+
+def wait_for_element(driver, by, value, timeout=10):
+    """Wait for an element to be present on the page."""
+    try:
+        return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, value)))
+    except Exception as e:
+        print(f"Error waiting for element {value}: {e}")
         return None
